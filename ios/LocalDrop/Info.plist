@@ -56,5 +56,11 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>LocalDrop needs local network access to find nearby devices to send files to.</string>
+	<key>NSBonjourServices</key>
+	<array>
+	<string>_localdrop._tcp.</string>
+	</array>
 </dict>
 </plist>
