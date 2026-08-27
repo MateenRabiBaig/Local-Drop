@@ -15,7 +15,7 @@ const discoverySlice = createSlice({
     name: 'discovery',
     initialState,
     reducers: {
-        scanStarted(state): {
+        scanStarted(state) {
             state.scanning = true;
         },
         scanStopped(state) {
