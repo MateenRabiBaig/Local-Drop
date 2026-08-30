@@ -11,8 +11,6 @@ function Placeholder({ label }: { label: string }) {
     )
 }
 
-export const ReceiveWaitScreen = () => <Placeholder label="Receive - waiting" />;
-export const FilePickerScreen = () => <Placeholder label="File Picker" />;
 export const TransferProgressScreen = () => <Placeholder label="Transfer Progress" />;
 export const TransferCompleteScreen = () => <Placeholder label="History" />
 export const HistoryScreen = () => <Placeholder label="History" />
