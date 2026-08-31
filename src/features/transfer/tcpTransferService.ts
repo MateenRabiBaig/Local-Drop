@@ -6,6 +6,9 @@ export const TRANSFER_PORT = 52999;
 
 const CHUNK_SIZE = 64 * 1024;
 
+const SERVER_KEYSTORE = require('../../assets/certs/server-keystore.p12');
+const SERVER_CERT = require('../../assets/certs/server-cert.pem');
+
 interface SendFileOptions {
     host: string;
     port: number;
@@ -19,7 +22,7 @@ export function sendFile(opts: SendFileOptions): Promise<void> {
     const { host, port, filePath, fileName, fileSize, onProgress } = opts;
 
     return new Promise((resolve, reject) => {
-        const client = TcpSockets.createConnection({ host, port }, async() => {
+        const client = TcpSockets.connectTLS({ host, port }, async() => {
             const header = JSON.stringify({ fileName, fileSize }) + '\n';
             client.write(header, 'utf8');
 
@@ -64,7 +67,7 @@ interface ReceiverCallbacks {
 }
 
 export function startReceiverServer(callbacks: ReceiverCallbacks) {
-    const server = TcpSockets.createServer(socket => {
+    const server = TcpSockets.createTLSServer(socket => {
         let headerParsed = false;
         let headerBuffer = Buffer.alloc(0);
         let fileName = '';
