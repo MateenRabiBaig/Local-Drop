@@ -18,10 +18,16 @@ interface SendFileOptions {
     onProgress: (bytesSent: number) => void;
 }
 
-export function sendFile(opts: SendFileOptions): Promise<void> {
-    const { host, port, filePath, fileName, fileSize, onProgress } = opts;
+interface SendFileHandle {
+  promise: Promise<void>;
+  cancel: () => void;
+}
 
-    return new Promise((resolve, reject) => {
+export function sendFile(opts: SendFileOptions): SendFileHandle {
+    const { host, port, filePath, fileName, fileSize, onProgress } = opts;
+    let clientRef: ReturnType<typeof TcpSockets.connectTLS> | null = null;
+
+    const promise = new Promise((resolve, reject) => {
         const client = TcpSockets.connectTLS({ host, port }, async() => {
             const header = JSON.stringify({ fileName, fileSize }) + '\n';
             client.write(header, 'utf8');
@@ -55,9 +61,12 @@ export function sendFile(opts: SendFileOptions): Promise<void> {
             };
             sendNextChunk();
         });
+        clientRef = client;
         client.on('error', err => reject(err));
         client.on('close', () => resolve());
     });
+
+    return { promise, cancel: () => clientRef?.destroy() };
 }
 
 interface ReceiverCallbacks {
