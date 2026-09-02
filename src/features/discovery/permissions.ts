@@ -1,11 +1,10 @@
 import { Platform } from 'react-native';
-import { PERMISSIONS, RESULTS, request, requestMultiple } from 'react-native-permissions';
+import { PERMISSIONS, RESULTS, requestMultiple } from 'react-native-permissions';
 
 export async function requestDiscoveryPermissions(): Promise<boolean> {
-    if(Platform.OS === 'ios') {
-        const result = await request(PERMISSIONS.IOS.LOCAL_NETWORK);
-        return result === RESULTS.GRANTED || result === RESULTS.LIMITED;
-    }
+    // iOS local-network access is requested by Bonjour when scanning starts;
+    // react-native-permissions does not expose a LOCAL_NETWORK constant.
+    if (Platform.OS === 'ios') return true;
 
     const permissions = [PERMISSIONS.ANDROID.NEARBY_WIFI_DEVICES];
     const results = await requestMultiple(permissions);

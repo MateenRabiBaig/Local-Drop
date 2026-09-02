@@ -5,7 +5,7 @@ import { colors } from "../theme/colors";
 interface Props {
     fileName: string;
     peerName: string;
-    direction: 'sent' | 'receive';
+    direction: 'sent' | 'received';
     onDone: () => void;
 }
 

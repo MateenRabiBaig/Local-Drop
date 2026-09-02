@@ -1,5 +1,12 @@
-import Zeroconf, { Service } from 'react-native-zeroconf';
+import Zeroconf from 'react-native-zeroconf';
 import { Device } from '../../types';
+
+interface DiscoveredService {
+    name: string;
+    host?: string;
+    port: number;
+    txt?: Record<string, string>;
+}
 
 const SERVICE_TYPE = 'localdrop';
 const SERVICE_PROTOCOL = 'tcp';
@@ -14,11 +21,11 @@ class ZeroconfService {
     private lostListeners: LostListener[] = [];
     private started = false;
 
-    private mapService(service: Service): Device | null {
-        if(!service.host || service.port) return null;
+    private mapService(service: DiscoveredService): Device | null {
+        if (!service.host || !service.port) return null;
         return {
             id: service.name,
-            name: (service.txt && (service.txt as any).displayName) || service.name,
+            name: service.txt?.displayName || service.name,
             host: service.host,
             port: service.port,
             lastSeen: Date.now(),
@@ -29,17 +36,17 @@ class ZeroconfService {
         if(this.started) return;
         this.started = true;
 
-        this.zeroconf.on('resolved', service => {
+        this.zeroconf.on('resolved', (service: DiscoveredService) => {
             const device = this.mapService(service);
             if (device) this.foundListeners.forEach(cb => cb(device));
         });
 
-        this.zeroconf.on('remove', name => {
+        this.zeroconf.on('remove', (name: string) => {
             this.lostListeners.forEach(cb => cb(name));
         });
 
-        this.zeroconf.on('error', err => {
-            console.warn('[Zeroconf] error', err)
+        this.zeroconf.on('error', (err: Error) => {
+            console.warn('[Zeroconf] error', err);
         });
     }
 

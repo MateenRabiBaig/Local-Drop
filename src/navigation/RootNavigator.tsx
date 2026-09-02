@@ -12,6 +12,8 @@ export function RootNavigator() {
         <NavigationContainer>
             <Stack.Navigator screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="Home" component={HomeScreen} />
+                <Stack.Screen name="Receive" component={ReceiveWaitScreen} />
+                <Stack.Screen name="Send" component={FilePickerScreen} />
             </Stack.Navigator>
         </NavigationContainer>
     );

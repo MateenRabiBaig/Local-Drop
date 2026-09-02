@@ -4,9 +4,9 @@ import { colors } from "../theme/colors";
 
 function Placeholder({ label }: { label: string }) {
     return (
-        <View>
-            <Text></Text>
-            <Text></Text>
+        <View style={styles.screen}>
+            <Text style={styles.text}>{label}</Text>
+            <Text style={styles.sub}>Coming soon</Text>
         </View>
     )
 }
