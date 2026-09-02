@@ -9,7 +9,7 @@ interface Props {
     onDone: () => void;
 }
 
-export function TransferCompleteScreen({ fileName, peerName, direction, onDone }: Props) {
+export function TransferCompleteView({ fileName, peerName, direction, onDone }: Props) {
     return (
         <View style={styles.wrap}>
             <View style={styles.icon}>

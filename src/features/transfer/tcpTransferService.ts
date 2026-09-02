@@ -125,7 +125,7 @@ export function startReceiverServer(callbacks: ReceiverCallbacks) {
             }
             appendChunk(chunk);
         });
-        socket.on('error', err => callbacks.onError(err))''
+        socket.on('error', err => callbacks.onError(err));
     });
     server.listen({ port: TRANSFER_PORT, host: '0.0.0.0' });
     return server;
