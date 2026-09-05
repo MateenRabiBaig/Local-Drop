@@ -1,11 +1,13 @@
 import { configureStore } from "@reduxjs/toolkit";
 import discoveryReducer from '../features/discovery/discoverySlice';
 import transferReducer from '../features/transfer/transferSlice';
+import settingsReducer from '../features/settings/settingsSlice';
 
 export const store = configureStore({
     reducer: {
         discovery: discoveryReducer,
-        transfer: transferReducer
+        transfer: transferReducer,
+        settings: settingsReducer
     }
 });
 

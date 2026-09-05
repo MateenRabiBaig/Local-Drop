@@ -31,9 +31,12 @@ const transferSlice = createSlice({
                 state.history.unshift(state.active);
                 state.active = null;
             }
-        }
+        },
+        historyCleared(state) {
+            state.history = [];
+        },
     }
 });
 
-export const { transferStarted, transferProgressed, transferFinished } = transferSlice.actions;
+export const { transferStarted, transferProgressed, transferFinished, historyCleared } = transferSlice.actions;
 export default transferSlice.reducer;
