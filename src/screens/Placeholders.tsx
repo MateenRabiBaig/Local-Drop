@@ -13,8 +13,6 @@ function Placeholder({ label }: { label: string }) {
 
 export const TransferProgressScreen = () => <Placeholder label="Transfer Progress" />;
 export const TransferCompleteScreen = () => <Placeholder label="History" />
-export const HistoryScreen = () => <Placeholder label="History" />
-export const SettingsScreen = () => <Placeholder label="Settings" />
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center' },
