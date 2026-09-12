@@ -156,7 +156,14 @@ export function startReceiverServer(callbacks: ReceiverCallbacks) {
             }
             if(accepted) appendChunk(chunk);
         });
-        socket.on('error', err => callbacks.onError(err));
+        socket.on('error', err => {
+            writeQueue = writeQueue.then(async () => {
+                if (filePath && (await RNFS.exists(filePath)) && bytesReceived < fileSize) {
+                    await RNFS.unlink(filePath);
+                }
+            });
+            callbacks.onError(err);
+        });
     });
     server.listen({ port: TRANSFER_PORT, host: '0.0.0.0' });
     return server;

@@ -9,6 +9,8 @@ interface Props {
   fileSizeBytes: number;
   bytesTransferred: number;
   direction: 'sent' | 'received';
+  fileIndex?: number;
+  fileCount?: number;
   onCancel?: () => void;
 }
 
@@ -27,6 +29,8 @@ export function TransferProgressView({
   fileSizeBytes,
   bytesTransferred,
   direction,
+  fileIndex,
+  fileCount,
   onCancel,
 }: Props) {
   const pct = fileSizeBytes > 0 ? Math.min(bytesTransferred / fileSizeBytes, 1) : 0;
@@ -35,6 +39,7 @@ export function TransferProgressView({
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>{direction === 'sent' ? `Sending to ${peerName}` : `Receiving from ${peerName}`}</Text>
+      {fileIndex && fileCount && <Text style={styles.filePosition}>File {fileIndex} of {fileCount}</Text>}
 
       <View style={styles.ringWrap}>
         <Svg width={180} height={180} viewBox="0 0 180 180">
@@ -80,6 +85,7 @@ export function TransferProgressView({
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center', paddingTop: 24 },
   label: { fontFamily: 'OpenSans-Regular', fontSize: 12.5, color: colors.muted, marginBottom: 20 },
+  filePosition: { fontFamily: 'JetBrainsMono-Regular', fontSize: 11.5, color: colors.muted, marginTop: -12, marginBottom: 12 },
   ringWrap: { width: 180, height: 180, marginBottom: 22 },
   ringCenter: { position: 'absolute', width: 180, height: 180, alignItems: 'center', justifyContent: 'center' },
   ringPct: { fontFamily: 'Poppins-SemiBold', fontSize: 30, color: colors.ink },
