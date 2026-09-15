@@ -68,11 +68,11 @@ export function SendScanScreen() {
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.paper },
-    topbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 12, paddingBottom: 14 },
+    topbar: { backgroundColor: colors.paper, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 14 },
     backBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
     backGlyph: { fontSize: 16, color: colors.muted },
     title: { fontFamily: 'Poppins-SemiBold', fontSize: 16, color: colors.ink },
-    hero: { alignItems: 'center', paddingHorizontal: 24, paddingTop: 12, paddingBottom: 32 },
+    hero: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 32 },
     radarBig: { width: 120, height: 120, borderRadius: 60, borderWidth: 2, borderColor: colors.signal, alignItems: 'center', justifyContent: 'center', marginBottom: 22 },
     core: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.signalDim, alignItems: 'center', justifyContent: 'center' },
     coreGlyph: { fontSize: 24, color: colors.signal },

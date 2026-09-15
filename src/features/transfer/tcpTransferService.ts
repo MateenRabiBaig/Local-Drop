@@ -134,7 +134,28 @@ export function startReceiverServer(callbacks: ReceiverCallbacks) {
                 const newlineIndex = headerBuffer.indexOf(0x0a);
                 if(newlineIndex === -1) return;
 
-                const header = JSON.parse(headerBuffer.subarray(0, newlineIndex).toString());
+                const headerText = headerBuffer.subarray(0, newlineIndex).toString().trim();
+                let header: { fileName?: unknown; fileSize?: unknown };
+
+                try {
+                    header = JSON.parse(headerText);
+                } catch {
+                    callbacks.onError(new Error(`Invalid transfer header: ${headerText}`));
+                    socket.destroy();
+                    return;
+                }
+
+                if (
+                    typeof header.fileName !== 'string' ||
+                    typeof header.fileSize !== 'number' ||
+                    !Number.isFinite(header.fileSize) ||
+                    header.fileSize < 0
+                ) {
+                    callbacks.onError(new Error('Invalid transfer header fields'));
+                    socket.destroy();
+                    return;
+                }
+
                 fileName = header.fileName;
                 fileSize = header.fileSize;
                 filePath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
