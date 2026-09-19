@@ -182,7 +182,10 @@ export async function startReceiverServer(callbacks: ReceiverCallbacks) {
                 const newlineIndex = headerBuffer.indexOf(0x0a);
                 if(newlineIndex === -1) return;
 
-                const headerText = headerBuffer.subarray(0, newlineIndex).toString().trim();
+                // Avoid Buffer.subarray: under Hermes it returns a plain Uint8Array
+                // (Symbol.species unsupported), whose toString() joins decimals
+                // instead of decoding utf8.
+                const headerText = headerBuffer.toString('utf8', 0, newlineIndex).trim();
                 const jsonStart = headerText.indexOf('{');
                 const jsonEnd = headerText.lastIndexOf('}');
                 const jsonText = jsonStart >= 0 && jsonEnd > jsonStart

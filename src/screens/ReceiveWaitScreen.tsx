@@ -20,12 +20,14 @@ export function ReceiveWaitScreen() {
   const [stage, setStage] = useState<Stage>('waiting');
   const [fileInfo, setFileInfo] = useState({ name: '', size: 0, received: 0 });
   const [respondFn, setRespondFn] = useState<((accepted: boolean) => void) | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       const instanceName = zeroconfService.publish(deviceName, TRANSFER_PORT);
       let server: { close: () => void } | null = null;
       let disposed = false;
+      setServerError(null);
 
       startReceiverServer({
         onIncomingRequest: (fileName, fileSize, respond) => {
@@ -45,6 +47,7 @@ export function ReceiveWaitScreen() {
         },
         onError: (error) => {
           console.error('[Transfer] receiver error:', error);
+          setServerError(error.message);
           dispatch(transferFinished({ status: 'failed' }));
           setStage('waiting');
         },
@@ -58,6 +61,7 @@ export function ReceiveWaitScreen() {
         })
         .catch(error => {
           console.error('[Transfer] receiver error:', error);
+          setServerError(error instanceof Error ? error.message : String(error));
           dispatch(transferFinished({ status: 'failed' }));
         });
 
@@ -136,6 +140,9 @@ export function ReceiveWaitScreen() {
         </View>
         <Text style={styles.heroTitle}>Waiting to receive…</Text>
         <Text style={styles.heroSub}>Visible as "{deviceName}" to others on this Wi-Fi</Text>
+        {serverError && (
+          <Text style={styles.serverError}>Server error: {serverError}</Text>
+        )}
       </View>
 
       <Modal visible={stage === 'incoming'} transparent animationType="fade">
@@ -178,6 +185,7 @@ const styles = StyleSheet.create({
   coreGlyph: { fontSize: 24, color: '#B9760E' },
   heroTitle: { fontFamily: 'Poppins-SemiBold', fontSize: 16, color: colors.ink, textAlign: 'center', marginBottom: 4 },
   heroSub: { fontFamily: 'OpenSans-Regular', fontSize: 12.5, color: colors.muted, textAlign: 'center' },
+  serverError: { fontFamily: 'OpenSans-Regular', fontSize: 12, color: colors.danger, textAlign: 'center', marginTop: 14, paddingHorizontal: 20 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(20,23,31,0.55)', alignItems: 'center', justifyContent: 'center', padding: 28 },
   modalCard: { width: '100%', backgroundColor: colors.card, borderRadius: 22, padding: 24, alignItems: 'center' },
   modalClose: { position: 'absolute', top: 14, right: 14, width: 26, height: 26, borderRadius: 13, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center' },
