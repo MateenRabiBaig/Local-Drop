@@ -2,7 +2,8 @@ import React, { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
-import { pick } from '@react-native-documents/picker';
+import { keepLocalCopy, pick } from '@react-native-documents/picker';
+import RNFS from 'react-native-fs';
 import { colors } from '../theme/colors';
 import { sendFileQueue } from '../features/transfer/transferQueue';
 import { transferStarted, transferProgressed, transferFinished } from '../features/transfer/transferSlice';
@@ -23,11 +24,32 @@ export function FilePickerScreen() {
   const [bytesSent, setBytesSent] = useState<number[]>([]);
   const bytesSentRef = useRef<number[]>([]);
   const [cancelFn, setCancelFn] = useState<(() => void) | null>(null);
+  const [transferError, setTransferError] = useState('');
 
   const handlePick = async () => {
     try {
       const results = await pick({ mode: 'import', allowMultiSelection: true });
-      const selectedFiles = results.map(r => ({ uri: r.uri, name: r.name ?? 'file', size: r.size ?? 0 }));
+      const filesToCopy = results.map(r => ({ uri: r.uri, fileName: r.name ?? 'file' }));
+      const localCopies = await keepLocalCopy({
+        files: [filesToCopy[0], ...filesToCopy.slice(1)],
+        destination: 'cachesDirectory',
+      });
+
+      const selectedFiles = await Promise.all(results.map(async (r, index) => {
+        const localCopy = localCopies[index];
+        if (localCopy.status !== 'success') {
+          throw new Error(localCopy.copyError);
+        }
+
+        const uri = decodeURIComponent(localCopy.localUri);
+        const localPath = uri.startsWith('file://') ? uri.slice('file://'.length) : uri;
+        const localStat = await RNFS.stat(localPath);
+        return {
+          uri: localPath,
+          name: r.name ?? 'file',
+          size: localStat.size,
+        };
+      }));
       setFiles(selectedFiles);
       const initialProgress = selectedFiles.map(() => 0);
       bytesSentRef.current = initialProgress;
@@ -42,6 +64,7 @@ export function FilePickerScreen() {
     const initialProgress = files.map(() => 0);
     bytesSentRef.current = initialProgress;
     setBytesSent(initialProgress);
+    setTransferError('');
     setStage('sending');
     dispatch(
       transferStarted({
@@ -71,8 +94,14 @@ export function FilePickerScreen() {
           bytesTransferred: nextProgress.reduce((total, value) => total + value, 0),
         }));
       },
-      onFileDone: (fileIndex, status) => {
-        if (status === 'failed') hasFailedFile = true;
+      onFileDone: (fileIndex, status, error) => {
+        if (status === 'failed') {
+          hasFailedFile = true;
+          if (error) {
+            console.error('[Transfer] send failed:', error);
+            setTransferError(error.message);
+          }
+        }
       },
     });
     setCancelFn(() => cancel);
@@ -81,7 +110,10 @@ export function FilePickerScreen() {
       await promise;
       dispatch(transferFinished({ status: hasFailedFile ? 'failed' : 'completed' }));
       setStage(hasFailedFile ? 'failed' : 'done');
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[Transfer] send failed:', error);
+      setTransferError(message);
       dispatch(transferFinished({ status: 'failed' }));
       setStage('failed');
     }
@@ -153,7 +185,7 @@ export function FilePickerScreen() {
 
         {stage === 'failed' && (
           <>
-            <Text style={styles.errorText}>Transfer failed or was declined</Text>
+            <Text style={styles.errorText}>{transferError || 'Transfer failed or was declined'}</Text>
             <Pressable style={styles.sendBtn} onPress={handleSend}>
               <Text style={styles.sendBtnText}>Retry</Text>
             </Pressable>

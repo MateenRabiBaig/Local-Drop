@@ -5,8 +5,31 @@ import { Buffer } from 'buffer';
 export const TRANSFER_PORT = 52999;
 const CHUNK_SIZE = 64 * 1024;
 
-const SERVER_KEYSTORE = require('../../assets/certs/server-keystore.p12');
-const SERVER_CERT = require('../../assets/certs/server-cert.pem');
+// Certs are bundled as raw Android assets (android/app/src/main/assets/certs)
+// and copied to a real file so the native TLS code can read them via a file://
+// URI. Metro asset URIs only work in dev (Metro HTTP); release builds resolve
+// to file:///android_res/... which the library cannot open.
+const CERT_DIR = `${RNFS.CachesDirectoryPath}/certs`;
+
+async function ensureCertFile(name: string): Promise<string> {
+    if (!(await RNFS.exists(CERT_DIR))) {
+        await RNFS.mkdir(CERT_DIR);
+    }
+    const dest = `${CERT_DIR}/${name}`;
+    await RNFS.copyFileAssets(`certs/${name}`, dest);
+    return `file://${dest}`;
+}
+
+function normalizeChunk(data: unknown): Buffer {
+    if (Buffer.isBuffer(data)) return data;
+    if (data instanceof Uint8Array) return Buffer.from(data);
+    if (Array.isArray(data)) return Buffer.from(data);
+    if (data && typeof data === 'object' && typeof (data as { length?: unknown }).length === 'number') {
+        return Buffer.from(Array.from(data as ArrayLike<number>));
+    }
+    if (typeof data === 'string') return Buffer.from(data, 'utf8');
+    throw new Error(`Unexpected socket data type: ${typeof data}`);
+}
 
 interface SendFileOptions {
     host: string;
@@ -25,9 +48,12 @@ interface SendFileHandle {
 export function sendFile(opts: SendFileOptions): SendFileHandle {
     const { host, port, filePath, fileName, fileSize, onProgress } = opts;
     let clientRef: ReturnType<typeof TcpSockets.connectTLS> | null = null;
+    let accepted = false;
+    let settled = false;
+    let position = 0;
 
-    const promise = new Promise<void>((resolve, reject) => {
-        const client = TcpSockets.connectTLS({ host, port, ca: SERVER_CERT }, () => {
+    const promise = ensureCertFile('server-cert.pem').then(caUri => new Promise<void>((resolve, reject) => {
+        const client = TcpSockets.connectTLS({ host, port, ca: { uri: caUri } }, () => {
             const header = JSON.stringify({ fileName, fileSize }) + '\n';
             client.write(header, 'utf8');
 
@@ -38,17 +64,14 @@ export function sendFile(opts: SendFileOptions): SendFileHandle {
                 awaitingDecision = false;
                 client.removeListener('data', onFirstData);
 
-                const byteBuffer = typeof data === 'string'
-                    ? Buffer.from(data, 'utf8')
-                    : Buffer.from(data as Uint8Array);
+                const byteBuffer = normalizeChunk(data);
                 const byte = byteBuffer[0];
-                if(byte! == 1) {
+                if(byte !== 1) {
                     reject(new Error('declined'));
                     client.destroy();
                     return;
                 }
-
-            let position = 0;
+                accepted = true;
 
             const sendNextChunk = async() => {
                 if(position >= fileSize) {
@@ -81,8 +104,16 @@ export function sendFile(opts: SendFileOptions): SendFileHandle {
         });
         clientRef = client;
         client.on('error', err => reject(err));
-        client.on('close', () => resolve());
-    });
+        client.on('close', () => {
+            if (settled) return;
+            settled = true;
+            if (accepted && position >= fileSize) {
+                resolve();
+            } else {
+                reject(new Error('Transfer ended before completion'));
+            }
+        });
+    }));
 
     return { promise, cancel: () => clientRef?.destroy() };
 }
@@ -98,14 +129,21 @@ interface ReceiverCallbacks {
     onError: (err: Error) => void;
 }
 
-export function startReceiverServer(callbacks: ReceiverCallbacks) {
-    const server = TcpSockets.createTLSServer({ keystore: SERVER_KEYSTORE },socket => {
+export async function startReceiverServer(callbacks: ReceiverCallbacks) {
+    const keystoreUri = await ensureCertFile('server-keystore.p12');
+    const server = TcpSockets.createTLSServer(
+        // react-native-tcp-socket hardcodes an empty password when loading the
+        // keystore natively, so server-keystore.p12 must be exported with no password.
+        { keystore: { uri: keystoreUri } } as Parameters<typeof TcpSockets.createTLSServer>[0],
+        socket => {
         let headerParsed = false;
         let headerBuffer = Buffer.alloc(0);
         let fileName = '';
         let fileSize = 0;
         let bytesReceived = 0;
         let filePath = '';
+        let transferCompleted = false;
+        let dataShapeLogged = false;
 
         let writeQueue: Promise<void> = Promise.resolve();
 
@@ -115,9 +153,10 @@ export function startReceiverServer(callbacks: ReceiverCallbacks) {
                 bytesReceived += chunk.length;
                 callbacks.onProgress(bytesReceived, fileSize);
 
-                if(bytesReceived >= fileSize) {
+                if(!transferCompleted && bytesReceived >= fileSize) {
+                    transferCompleted = true;
                     callbacks.onComplete(filePath, fileName);
-                    socket.end()
+                    socket.end();
                 }
             });
         };
@@ -125,9 +164,18 @@ export function startReceiverServer(callbacks: ReceiverCallbacks) {
         let accepted = false;
 
         socket.on('data', (data: unknown) => {
-            const chunk = typeof data === 'string'
-                ? Buffer.from(data, 'utf8')
-                : Buffer.from(data as Uint8Array);
+            if (!dataShapeLogged) {
+                dataShapeLogged = true;
+                console.log('[DEBUG data shape]', {
+                    type: typeof data,
+                    isBuffer: Buffer.isBuffer(data),
+                    isUint8Array: data instanceof Uint8Array,
+                    isArray: Array.isArray(data),
+                    hasLength: !!data && typeof (data as { length?: unknown }).length === 'number',
+                    hex: normalizeChunk(data).toString('hex').slice(0, 32),
+                });
+            }
+            const chunk = normalizeChunk(data);
             
             if(!headerParsed) {
                 headerBuffer = Buffer.concat([headerBuffer, chunk]);
@@ -135,21 +183,31 @@ export function startReceiverServer(callbacks: ReceiverCallbacks) {
                 if(newlineIndex === -1) return;
 
                 const headerText = headerBuffer.subarray(0, newlineIndex).toString().trim();
+                const jsonStart = headerText.indexOf('{');
+                const jsonEnd = headerText.lastIndexOf('}');
+                const jsonText = jsonStart >= 0 && jsonEnd > jsonStart
+                    ? headerText.slice(jsonStart, jsonEnd + 1)
+                    : headerText;
                 let header: { fileName?: unknown; fileSize?: unknown };
 
                 try {
-                    header = JSON.parse(headerText);
+                    header = JSON.parse(jsonText);
                 } catch {
                     callbacks.onError(new Error(`Invalid transfer header: ${headerText}`));
                     socket.destroy();
                     return;
                 }
 
+                const parsedFileSize = typeof header.fileSize === 'number'
+                    ? header.fileSize
+                    : typeof header.fileSize === 'string'
+                        ? Number(header.fileSize)
+                        : NaN;
+
                 if (
                     typeof header.fileName !== 'string' ||
-                    typeof header.fileSize !== 'number' ||
-                    !Number.isFinite(header.fileSize) ||
-                    header.fileSize < 0
+                    !Number.isFinite(parsedFileSize) ||
+                    parsedFileSize < 0
                 ) {
                     callbacks.onError(new Error('Invalid transfer header fields'));
                     socket.destroy();
@@ -157,7 +215,7 @@ export function startReceiverServer(callbacks: ReceiverCallbacks) {
                 }
 
                 fileName = header.fileName;
-                fileSize = header.fileSize;
+                fileSize = parsedFileSize;
                 filePath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
                 headerParsed = true;
 
@@ -172,6 +230,11 @@ export function startReceiverServer(callbacks: ReceiverCallbacks) {
                     if(exists) await RNFS.unlink(filePath);
                     await RNFS.writeFile(filePath, '', 'utf8');
                     socket.write(Buffer.from([1]));
+                    if (fileSize === 0) {
+                        transferCompleted = true;
+                        callbacks.onComplete(filePath, fileName);
+                        socket.end();
+                    }
                 });
                 return;
             }
@@ -185,7 +248,9 @@ export function startReceiverServer(callbacks: ReceiverCallbacks) {
             });
             callbacks.onError(err);
         });
-    });
+        },
+    );
+    server.on('error', callbacks.onError);
     server.listen({ port: TRANSFER_PORT, host: '0.0.0.0' });
     return server;
 }

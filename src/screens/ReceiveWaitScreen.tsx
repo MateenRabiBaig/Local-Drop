@@ -24,8 +24,10 @@ export function ReceiveWaitScreen() {
   useFocusEffect(
     useCallback(() => {
       const instanceName = zeroconfService.publish(deviceName, TRANSFER_PORT);
+      let server: { close: () => void } | null = null;
+      let disposed = false;
 
-      const server = startReceiverServer({
+      startReceiverServer({
         onIncomingRequest: (fileName, fileSize, respond) => {
           setFileInfo({ name: fileName, size: fileSize, received: 0 });
           setRespondFn(() => respond);
@@ -41,14 +43,27 @@ export function ReceiveWaitScreen() {
           setFileInfo(prev => ({ ...prev, name: fileName }));
           setStage('done');
         },
-        onError: () => {
+        onError: (error) => {
+          console.error('[Transfer] receiver error:', error);
           dispatch(transferFinished({ status: 'failed' }));
           setStage('waiting');
         },
-      });
+      })
+        .then(s => {
+          if (disposed) {
+            s.close();
+            return;
+          }
+          server = s;
+        })
+        .catch(error => {
+          console.error('[Transfer] receiver error:', error);
+          dispatch(transferFinished({ status: 'failed' }));
+        });
 
       return () => {
-        server.close();
+        disposed = true;
+        server?.close();
         zeroconfService.unpublish(instanceName);
       };
     }, [dispatch, deviceName]),

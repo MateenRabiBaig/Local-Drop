@@ -11,7 +11,7 @@ interface SendQueueOptions {
     port: number;
     files: QueueFile[];
     onFileProgress: (fileIndex: number, bytesSent: number) => void;
-    onFileDone: (fileIndex: number, status: 'completed' | 'failed') => void;
+    onFileDone: (fileIndex: number, status: 'completed' | 'failed', error?: Error) => void;
 }
 
 interface QueueHandle {
@@ -35,8 +35,8 @@ export function sendFileQueue(opts: SendQueueOptions): QueueHandle {
                 await filePromise;
                 onFileDone(i, 'completed');
             }
-            catch {
-                onFileDone(i, 'failed');
+            catch (error) {
+            onFileDone(i, 'failed', error instanceof Error ? error : new Error(String(error)));
             }
         }
     })();
