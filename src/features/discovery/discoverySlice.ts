@@ -31,7 +31,7 @@ const discoverySlice = createSlice({
             }
         },
         deviceLost(state, action: PayloadAction<{ id: string }>) {
-            state.devices = state.devices.filter(d => d.id! == action.payload.id);
+            state.devices = state.devices.filter(d => d.id !== action.payload.id);
         },
         devicesCleared(state) {
             state.devices = [];

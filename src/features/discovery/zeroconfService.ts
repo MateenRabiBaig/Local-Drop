@@ -4,6 +4,7 @@ import { Device } from '../../types';
 interface DiscoveredService {
     name: string;
     host?: string;
+    addresses?: string[];
     port: number;
     txt?: Record<string, string>;
 }
@@ -22,11 +23,18 @@ class ZeroconfService {
     private started = false;
 
     private mapService(service: DiscoveredService): Device | null {
-        if (!service.host || !service.port) return null;
+        // Android's mDNS resolver gives us both a hostname and the resolved
+        // address. Prefer IPv4 here: .local hostnames are not consistently
+        // resolvable by Android's TCP stack, especially on emulators.
+        const ipv4 = service.addresses?.find(address =>
+            /^\d{1,3}(?:\.\d{1,3}){3}$/.test(address),
+        );
+        const host = ipv4 || service.host;
+        if (!host || !service.port) return null;
         return {
             id: service.name,
             name: service.txt?.displayName || service.name,
-            host: service.host,
+            host,
             port: service.port,
             lastSeen: Date.now(),
         };
@@ -73,14 +81,14 @@ class ZeroconfService {
     onDeviceFound(cb: Listener) {
         this.foundListeners.push(cb);
         return () => {
-            this.foundListeners = this.foundListeners.filter(l => l! == cb);
+            this.foundListeners = this.foundListeners.filter(l => l !== cb);
         };
     }
 
     onDeviceLost(cb: LostListener) {
         this.lostListeners.push(cb);
         return () => {
-            this.lostListeners = this.lostListeners.filter(l => l! == cb)
+            this.lostListeners = this.lostListeners.filter(l => l !== cb)
         };
     }
 }

@@ -5,19 +5,11 @@ import { Buffer } from 'buffer';
 export const TRANSFER_PORT = 52999;
 const CHUNK_SIZE = 64 * 1024;
 
-// Certs are bundled as raw Android assets (android/app/src/main/assets/certs)
-// and copied to a real file so the native TLS code can read them via a file://
-// URI. Metro asset URIs only work in dev (Metro HTTP); release builds resolve
-// to file:///android_res/... which the library cannot open.
-const CERT_DIR = `${RNFS.CachesDirectoryPath}/certs`;
-
-async function ensureCertFile(name: string): Promise<string> {
-    if (!(await RNFS.exists(CERT_DIR))) {
-        await RNFS.mkdir(CERT_DIR);
-    }
-    const dest = `${CERT_DIR}/${name}`;
-    await RNFS.copyFileAssets(`certs/${name}`, dest);
-    return `file://${dest}`;
+function safeFileName(name: string): string {
+    return name
+        .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_')
+        .replace(/^\.+$/, 'received-file')
+        .trim() || 'received-file';
 }
 
 function normalizeChunk(data: unknown): Buffer {
@@ -47,13 +39,18 @@ interface SendFileHandle {
 
 export function sendFile(opts: SendFileOptions): SendFileHandle {
     const { host, port, filePath, fileName, fileSize, onProgress } = opts;
-    let clientRef: ReturnType<typeof TcpSockets.connectTLS> | null = null;
+    let clientRef: ReturnType<typeof TcpSockets.createConnection> | null = null;
     let accepted = false;
     let settled = false;
     let position = 0;
+    let sourceBuffer: Buffer | null = null;
 
-    const promise = ensureCertFile('server-cert.pem').then(caUri => new Promise<void>((resolve, reject) => {
-        const client = TcpSockets.connectTLS({ host, port, ca: { uri: caUri } }, () => {
+    const promise = new Promise<void>((resolve, reject) => {
+        // The private key is shipped inside the APK, so TLS does not provide
+        // meaningful authentication for this local transfer. Plain TCP avoids
+        // Android PKCS#12 provider incompatibilities and keeps the protocol
+        // usable on physical devices and emulators.
+        const client = TcpSockets.createConnection({ host, port }, () => {
             const header = JSON.stringify({ fileName, fileSize }) + '\n';
             client.write(header, 'utf8');
 
@@ -73,32 +70,50 @@ export function sendFile(opts: SendFileOptions): SendFileHandle {
                 }
                 accepted = true;
 
-            const sendNextChunk = async() => {
+            const sendNextChunk = () => {
                 if(position >= fileSize) {
                     client.end();
                     return;
                 }
-                try {
-                    const base64Chunk = await RNFS.read(filePath, CHUNK_SIZE, position, 'base64');
-                    const buffer = Buffer.from(base64Chunk, 'base64');
-
-                    const canContinue = client.write(buffer);
-                    position += buffer.length;
-                    onProgress(position);
-
-                    if(canContinue) {
-                        sendNextChunk();
-                    }
-                    else {
-                        client.once('drain', sendNextChunk);
-                    }
-                }
-                catch(err) {
-                    reject(err);
+                if (!sourceBuffer) {
+                    reject(new Error('Source file was not loaded'));
                     client.destroy();
+                    return;
+                }
+
+                const buffer = Buffer.from(sourceBuffer.subarray(
+                    position,
+                    Math.min(position + CHUNK_SIZE, fileSize),
+                ));
+
+                const canContinue = client.write(buffer);
+                position += buffer.length;
+                onProgress(position);
+
+                if(canContinue) {
+                    sendNextChunk();
+                }
+                else {
+                    client.once('drain', sendNextChunk);
                 }
             };
-            sendNextChunk();
+
+            RNFS.readFile(filePath, 'base64')
+                .then(base64Contents => {
+                    sourceBuffer = Buffer.from(base64Contents, 'base64');
+
+                    if (sourceBuffer.length !== fileSize) {
+                        throw new Error(
+                            `Source file size changed: expected ${fileSize}, got ${sourceBuffer.length}`,
+                        );
+                    }
+
+                    sendNextChunk();
+                })
+                .catch(error => {
+                    reject(error instanceof Error ? error : new Error(String(error)));
+                    client.destroy();
+                });
         };
         client.on('data', onFirstData);
         });
@@ -113,7 +128,7 @@ export function sendFile(opts: SendFileOptions): SendFileHandle {
                 reject(new Error('Transfer ended before completion'));
             }
         });
-    }));
+    });
 
     return { promise, cancel: () => clientRef?.destroy() };
 }
@@ -130,12 +145,7 @@ interface ReceiverCallbacks {
 }
 
 export async function startReceiverServer(callbacks: ReceiverCallbacks) {
-    const keystoreUri = await ensureCertFile('server-keystore.p12');
-    const server = TcpSockets.createTLSServer(
-        // react-native-tcp-socket hardcodes an empty password when loading the
-        // keystore natively, so server-keystore.p12 must be exported with no password.
-        { keystore: { uri: keystoreUri } } as Parameters<typeof TcpSockets.createTLSServer>[0],
-        socket => {
+    const server = TcpSockets.createServer(socket => {
         let headerParsed = false;
         let headerBuffer = Buffer.alloc(0);
         let fileName = '';
@@ -153,11 +163,18 @@ export async function startReceiverServer(callbacks: ReceiverCallbacks) {
                 bytesReceived += chunk.length;
                 callbacks.onProgress(bytesReceived, fileSize);
 
-                if(!transferCompleted && bytesReceived >= fileSize) {
+                if (bytesReceived > fileSize) {
+                    throw new Error('Received more data than expected');
+                }
+
+                if(!transferCompleted && bytesReceived === fileSize) {
                     transferCompleted = true;
                     callbacks.onComplete(filePath, fileName);
                     socket.end();
                 }
+            }).catch(error => {
+                callbacks.onError(error instanceof Error ? error : new Error(String(error)));
+                socket.destroy();
             });
         };
 
@@ -219,7 +236,7 @@ export async function startReceiverServer(callbacks: ReceiverCallbacks) {
 
                 fileName = header.fileName;
                 fileSize = parsedFileSize;
-                filePath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
+                filePath = `${RNFS.DocumentDirectoryPath}/${safeFileName(fileName)}`;
                 headerParsed = true;
 
                 callbacks.onIncomingRequest(fileName, fileSize, async (userAccepted: boolean) => {
@@ -254,6 +271,20 @@ export async function startReceiverServer(callbacks: ReceiverCallbacks) {
         },
     );
     server.on('error', callbacks.onError);
-    server.listen({ port: TRANSFER_PORT, host: '0.0.0.0' });
+    // Do not advertise the service until the native socket has actually
+    // bound. Otherwise the sender can discover us and race the listen call.
+    await new Promise<void>((resolve, reject) => {
+        const onListening = () => {
+            server.removeListener('error', onError);
+            resolve();
+        };
+        const onError = (error: Error) => {
+            server.removeListener('listening', onListening);
+            reject(error);
+        };
+        server.once('listening', onListening);
+        server.once('error', onError);
+        server.listen({ port: TRANSFER_PORT, host: '0.0.0.0' });
+    });
     return server;
 }

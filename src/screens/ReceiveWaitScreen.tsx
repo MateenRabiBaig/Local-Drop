@@ -1,9 +1,11 @@
 import React, { useCallback, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
+import { saveDocuments } from '@react-native-documents/picker';
 import { colors } from '../theme/colors';
 import { zeroconfService } from '../features/discovery/zeroconfService';
+import { requestDiscoveryPermissions } from '../features/discovery/permissions';
 import { startReceiverServer, TRANSFER_PORT } from '../features/transfer/tcpTransferService';
 import { transferStarted, transferProgressed, transferFinished } from '../features/transfer/transferSlice';
 import { TransferProgressView } from '../components/TransferProgressView';
@@ -21,16 +23,22 @@ export function ReceiveWaitScreen() {
   const [fileInfo, setFileInfo] = useState({ name: '', size: 0, received: 0 });
   const [respondFn, setRespondFn] = useState<((accepted: boolean) => void) | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [savedPath, setSavedPath] = useState<string | null>(null);
 
-  useFocusEffect(
+    useFocusEffect(
     useCallback(() => {
-      const instanceName = zeroconfService.publish(deviceName, TRANSFER_PORT);
       let server: { close: () => void } | null = null;
+      let instanceName: string | null = null;
       let disposed = false;
       setServerError(null);
 
-      startReceiverServer({
+      requestDiscoveryPermissions().then(allowed => {
+        if (!allowed) {
+          throw new Error('Nearby devices permission was denied');
+        }
+        return startReceiverServer({
         onIncomingRequest: (fileName, fileSize, respond) => {
+          setSavedPath(null);
           setFileInfo({ name: fileName, size: fileSize, received: 0 });
           setRespondFn(() => respond);
           setStage('incoming');
@@ -41,6 +49,7 @@ export function ReceiveWaitScreen() {
           dispatch(transferProgressed({ bytesTransferred: bytesReceived }));
         },
         onComplete: (filePath, fileName) => {
+          setSavedPath(filePath);
           dispatch(transferFinished({ status: 'completed' }));
           setFileInfo(prev => ({ ...prev, name: fileName }));
           setStage('done');
@@ -51,6 +60,7 @@ export function ReceiveWaitScreen() {
           dispatch(transferFinished({ status: 'failed' }));
           setStage('waiting');
         },
+        });
       })
         .then(s => {
           if (disposed) {
@@ -58,6 +68,8 @@ export function ReceiveWaitScreen() {
             return;
           }
           server = s;
+          // Publish only after the port is bound and accepting connections.
+          instanceName = zeroconfService.publish(deviceName, TRANSFER_PORT);
         })
         .catch(error => {
           console.error('[Transfer] receiver error:', error);
@@ -68,7 +80,7 @@ export function ReceiveWaitScreen() {
       return () => {
         disposed = true;
         server?.close();
-        zeroconfService.unpublish(instanceName);
+        if (instanceName) zeroconfService.unpublish(instanceName);
       };
     }, [dispatch, deviceName]),
   );
@@ -89,6 +101,27 @@ export function ReceiveWaitScreen() {
     );
     respondFn?.(true);
     setStage('receiving');
+  };
+
+  const handleSaveToDevice = async () => {
+    if (!savedPath) return;
+
+    try {
+      const result = await saveDocuments({
+        sourceUris: [`file://${encodeURI(savedPath)}`],
+        fileName: fileInfo.name,
+        copy: true,
+      });
+
+      if (result[0]?.error) {
+        throw new Error(result[0].error);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.toLowerCase().includes('cancel')) {
+        Alert.alert('Could not save file', message);
+      }
+    }
   };
 
   const handleDecline = () => {
@@ -117,6 +150,8 @@ export function ReceiveWaitScreen() {
           fileName={fileInfo.name}
           peerName="Sender"
           direction="received"
+          savedPath={savedPath}
+          onSave={handleSaveToDevice}
           onDone={() => navigation.navigate('Home')}
         />
       </View>
