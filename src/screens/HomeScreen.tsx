@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from "@react-navigation/native";
 import { useDispatch, useSelector } from "react-redux";
 import { colors } from "../theme/colors";
@@ -9,6 +10,8 @@ import type { RootState } from "../app/store";
 import { zeroconfService } from "../features/discovery/zeroconfService";
 import { deviceFound, deviceLost } from "../features/discovery/discoverySlice";
 import { requestDiscoveryPermissions } from "../features/discovery/permissions";
+import { Icon } from '../components/Icon';
+import { BottomTabs } from '../components/BottomTabs';
 
 export function HomeScreen() {
     const navigation = useNavigation<any>();
@@ -27,14 +30,18 @@ export function HomeScreen() {
     }, [dispatch]);
 
     return (
-        <View style={styles.screen}>
+        <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
             <View style={styles.topBar}>
                 <Text style={styles.title}>LocalDrop</Text>
             </View>
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
                 <View style={styles.wifiChip}>
-                    <Text style={styles.wifiText}>{'\u25C8'} Connected to Wi-Fi</Text>
+                    <Icon name="wifi" size={16} color={colors.success} />
+                    <Text style={styles.wifiText}>Connected to Wi-Fi</Text>
                 </View>
+
+                <Text style={styles.introTitle}>Share files nearby</Text>
+                <Text style={styles.introBody}>Fast, private transfers over your local network.</Text>
 
                 <View style={styles.actionGrid}>
                     <ActionCard
@@ -63,18 +70,22 @@ export function HomeScreen() {
                     </>
                 )}
             </ScrollView>
-        </View>
+            <BottomTabs />
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.paper },
-    topBar: { paddingHorizontal: 18, paddingTop: 12, paddingBottom: 14 },
-    title: { fontFamily: 'Poppins-SemiBold', fontSize: 19, color: colors.ink },
-    content: { paddingHorizontal: 18, paddingBottom: 24 },
-    wifiChip: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 16, alignSelf: 'flex-start' },
-    wifiText: { fontFamily: 'JetBrainsMono-Regular', fontSize: 12, color: colors.muted },
-    actionGrid: { flexDirection: 'row', gap: 12, marginBottom: 6 },
+    topBar: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 18 },
+    title: { fontFamily: 'Poppins-SemiBold', fontSize: 21, color: colors.ink },
+    scroll: { flex: 1 },
+    content: { paddingHorizontal: 20, paddingBottom: 28 },
+    wifiChip: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: colors.successDim, borderRadius: 7, paddingVertical: 7, paddingHorizontal: 10, marginBottom: 22, alignSelf: 'flex-start' },
+    wifiText: { fontFamily: 'OpenSans-SemiBold', fontSize: 11.5, color: colors.success },
+    introTitle: { fontFamily: 'Poppins-SemiBold', fontSize: 19, color: colors.ink, marginBottom: 3 },
+    introBody: { fontFamily: 'OpenSans-Regular', fontSize: 13, color: colors.muted, marginBottom: 17 },
+    actionGrid: { flexDirection: 'row', gap: 10, marginBottom: 8 },
     sectionLabel: {
         fontFamily: 'OpenSans-SemiBold', fontSize: 11, color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 18, marginBottom: 10,
     }

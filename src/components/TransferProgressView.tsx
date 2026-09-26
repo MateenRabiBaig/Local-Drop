@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 import { colors } from '../theme/colors';
 
 interface Props {
@@ -43,18 +43,12 @@ export function TransferProgressView({
 
       <View style={styles.ringWrap}>
         <Svg width={180} height={180} viewBox="0 0 180 180">
-          <Defs>
-            <LinearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor={colors.signal} />
-              <Stop offset="100%" stopColor={colors.purple} />
-            </LinearGradient>
-          </Defs>
           <Circle cx={90} cy={90} r={RADIUS} stroke={colors.border} strokeWidth={12} fill="none" />
           <Circle
             cx={90}
             cy={90}
             r={RADIUS}
-            stroke="url(#ringGrad)"
+            stroke={colors.signal}
             strokeWidth={12}
             fill="none"
             strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`}

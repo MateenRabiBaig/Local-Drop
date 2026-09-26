@@ -4,6 +4,7 @@ import { store } from './src/app/store';
 import { RootNavigator } from "./src/navigation/RootNavigator";
 import { loadDeviceName } from "./src/features/settings/settingsStorage";
 import { deviceNameSet } from "./src/features/settings/settingsSlice";
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 function Bootstrap() {
   const dispatch = useDispatch();
@@ -12,7 +13,7 @@ function Bootstrap() {
       if(name) dispatch(deviceNameSet(name));
     });
   }, [dispatch]);
-  return <RootNavigator />;
+  return <SafeAreaProvider><RootNavigator /></SafeAreaProvider>;
 }
 
 export default function App() {

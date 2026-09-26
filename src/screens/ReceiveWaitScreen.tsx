@@ -11,6 +11,9 @@ import { transferStarted, transferProgressed, transferFinished } from '../featur
 import { TransferProgressView } from '../components/TransferProgressView';
 import { TransferCompleteView } from '../components/TransferCompleteView';
 import type { RootState } from '../app/store';
+import { Icon } from '../components/Icon';
+import { BottomTabs } from '../components/BottomTabs';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Stage = 'waiting' | 'incoming' | 'receiving' | 'done';
 
@@ -131,7 +134,7 @@ export function ReceiveWaitScreen() {
 
   if (stage === 'receiving') {
     return (
-      <View style={styles.screen}>
+      <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
         <TransferProgressView
           peerName="Sender"
           fileName={fileInfo.name}
@@ -139,13 +142,13 @@ export function ReceiveWaitScreen() {
           bytesTransferred={fileInfo.received}
           direction="received"
         />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (stage === 'done') {
     return (
-      <View style={styles.screen}>
+      <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
         <TransferCompleteView
           fileName={fileInfo.name}
           peerName="Sender"
@@ -154,25 +157,21 @@ export function ReceiveWaitScreen() {
           onSave={handleSaveToDevice}
           onDone={() => navigation.navigate('Home')}
         />
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
       <View style={styles.topbar}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backGlyph}>{'\u2190'}</Text>
+          <Icon name="back" size={18} color={colors.muted} />
         </Pressable>
         <Text style={styles.title}>Receive a file</Text>
         <View style={{ width: 34 }} />
       </View>
       <View style={styles.hero}>
-        <View style={styles.radarBig}>
-          <View style={styles.core}>
-            <Text style={styles.coreGlyph}>{'\u2193'}</Text>
-          </View>
-        </View>
+        <View style={styles.radarBig}><View style={styles.radarMid}><View style={styles.core}><Icon name="receive" size={22} color={colors.amber} /></View></View></View>
         <Text style={styles.heroTitle}>Waiting to receive…</Text>
         <Text style={styles.heroSub}>Visible as "{deviceName}" to others on this Wi-Fi</Text>
         {serverError && (
@@ -186,9 +185,7 @@ export function ReceiveWaitScreen() {
             <Pressable style={styles.modalClose} onPress={handleDecline}>
               <Text style={styles.modalCloseText}>{'\u2715'}</Text>
             </Pressable>
-            <View style={styles.modalAvatar}>
-              <Text style={styles.modalAvatarGlyph}>{'\u25A4'}</Text>
-            </View>
+            <View style={styles.modalAvatar}><Icon name="device" size={21} color={colors.signal} /></View>
             <Text style={styles.modalTitle}>Incoming file</Text>
             <Text style={styles.modalBody}>
               {fileInfo.name} · {(fileInfo.size / 1024).toFixed(1)} KB
@@ -204,34 +201,33 @@ export function ReceiveWaitScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+      <BottomTabs />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.paper },
   topbar: { backgroundColor: colors.paper, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 14 },
-  backBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  backGlyph: { fontSize: 16, color: colors.muted },
-  title: { fontFamily: 'Poppins-SemiBold', fontSize: 16, color: colors.ink },
+  backBtn: { width: 34, height: 34, borderRadius: 8, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  title: { fontFamily: 'Poppins-SemiBold', fontSize: 17, color: colors.ink },
   hero: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-  radarBig: { width: 120, height: 120, borderRadius: 60, borderWidth: 2, borderColor: colors.amber, alignItems: 'center', justifyContent: 'center', marginBottom: 22 },
-  core: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.amberDim, alignItems: 'center', justifyContent: 'center' },
-  coreGlyph: { fontSize: 24, color: '#B9760E' },
-  heroTitle: { fontFamily: 'Poppins-SemiBold', fontSize: 16, color: colors.ink, textAlign: 'center', marginBottom: 4 },
-  heroSub: { fontFamily: 'OpenSans-Regular', fontSize: 12.5, color: colors.muted, textAlign: 'center' },
+  radarBig: { width: 132, height: 132, borderRadius: 66, borderWidth: 1, borderColor: '#E7D7B8', alignItems: 'center', justifyContent: 'center', marginBottom: 22 },
+  radarMid: { width: 98, height: 98, borderRadius: 49, borderWidth: 1, borderColor: '#EADFCB', alignItems: 'center', justifyContent: 'center' },
+  core: { width: 56, height: 56, borderRadius: 12, backgroundColor: colors.amberDim, alignItems: 'center', justifyContent: 'center' },
+  heroTitle: { fontFamily: 'Poppins-SemiBold', fontSize: 17, color: colors.ink, textAlign: 'center', marginBottom: 4 },
+  heroSub: { fontFamily: 'OpenSans-Regular', fontSize: 13, color: colors.muted, textAlign: 'center' },
   serverError: { fontFamily: 'OpenSans-Regular', fontSize: 12, color: colors.danger, textAlign: 'center', marginTop: 14, paddingHorizontal: 20 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(20,23,31,0.55)', alignItems: 'center', justifyContent: 'center', padding: 28 },
-  modalCard: { width: '100%', backgroundColor: colors.card, borderRadius: 22, padding: 24, alignItems: 'center' },
+  modalCard: { width: '100%', backgroundColor: colors.card, borderRadius: 12, padding: 24, alignItems: 'center' },
   modalClose: { position: 'absolute', top: 14, right: 14, width: 26, height: 26, borderRadius: 13, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center' },
   modalCloseText: { fontSize: 12, color: colors.muted },
-  modalAvatar: { width: 52, height: 52, borderRadius: 16, backgroundColor: colors.purpleDim, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
-  modalAvatarGlyph: { fontSize: 22, color: colors.purple },
+  modalAvatar: { width: 52, height: 52, borderRadius: 10, backgroundColor: colors.signalDim, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
   modalTitle: { fontFamily: 'Poppins-SemiBold', fontSize: 17, color: colors.ink, marginBottom: 6 },
   modalBody: { fontFamily: 'JetBrainsMono-Regular', fontSize: 12, color: colors.muted, marginBottom: 20 },
   modalRow: { flexDirection: 'row', gap: 10, width: '100%' },
-  declineBtn: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
+  declineBtn: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingVertical: 13, alignItems: 'center' },
   declineText: { fontFamily: 'Poppins-SemiBold', fontSize: 14, color: colors.ink },
-  acceptBtn: { flex: 1, backgroundColor: colors.signal, borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
+  acceptBtn: { flex: 1, backgroundColor: colors.signal, borderRadius: 8, paddingVertical: 13, alignItems: 'center' },
   acceptText: { fontFamily: 'Poppins-SemiBold', fontSize: 14, color: '#fff' },
 });

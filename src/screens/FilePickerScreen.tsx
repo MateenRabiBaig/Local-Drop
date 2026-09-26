@@ -9,6 +9,7 @@ import { sendFileQueue } from '../features/transfer/transferQueue';
 import { transferStarted, transferProgressed, transferFinished } from '../features/transfer/transferSlice';
 import { TransferProgressView } from '../components/TransferProgressView';
 import { TransferCompleteView } from '../components/TransferCompleteView';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Stage = 'picking' | 'sending' | 'done' | 'failed';
 type SelectedFile = { uri: string; name: string; size: number };
@@ -121,7 +122,7 @@ export function FilePickerScreen() {
 
   if (stage === 'sending') {
     return (
-      <View style={styles.screen}>
+      <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
         {files.map((file, index) => (
           <TransferProgressView
             key={file.uri}
@@ -138,25 +139,25 @@ export function FilePickerScreen() {
             }}
           />
         ))}
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (stage === 'done') {
     return (
-      <View style={styles.screen}>
+      <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
         <TransferCompleteView
           fileName={files.length === 1 ? files[0].name : `${files.length} files`}
           peerName={device.name}
           direction="sent"
           onDone={() => navigation.navigate('Home')}
         />
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
       <View style={styles.topbar}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Text style={styles.backGlyph}>{'\u2190'}</Text>
@@ -200,7 +201,7 @@ export function FilePickerScreen() {
           </Pressable>
         </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

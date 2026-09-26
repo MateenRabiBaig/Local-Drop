@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { colors } from '../theme/colors';
 import type { RootState } from '../app/store';
 import { deviceNameSet } from '../features/settings/settingsSlice';
 import { saveDeviceName } from '../features/settings/settingsStorage';
 import { historyCleared } from '../features/transfer/transferSlice';
+import { BottomTabs } from '../components/BottomTabs';
 
 export function SettingsScreen() {
   const dispatch = useDispatch();
@@ -28,7 +30,7 @@ export function SettingsScreen() {
   };
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
       <View style={styles.topbar}>
         <Text style={styles.title}>Settings</Text>
       </View>
@@ -54,20 +56,21 @@ export function SettingsScreen() {
           <Text style={styles.rowValue}>{historyCount} records</Text>
         </Pressable>
       </View>
-    </View>
+      <BottomTabs />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.paper },
   topbar: { paddingHorizontal: 18, paddingTop: 12, paddingBottom: 14 },
-  title: { fontFamily: 'Poppins-SemiBold', fontSize: 19, color: colors.ink },
-  content: { paddingHorizontal: 18 },
-  sectionLabel: { fontFamily: 'OpenSans-SemiBold', fontSize: 11, color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 18, marginBottom: 10 },
-  nameRow: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, marginBottom: 8 },
-  nameInput: { fontFamily: 'OpenSans-SemiBold', fontSize: 13.5, color: colors.ink, padding: 13 },
-  row: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 13, marginBottom: 8 },
-  rowTitle: { fontFamily: 'OpenSans-SemiBold', fontSize: 13.5, color: colors.ink },
-  rowValue: { fontFamily: 'OpenSans-Regular', fontSize: 11.5, color: colors.muted, marginTop: 2 },
-  rowValueMono: { fontFamily: 'JetBrainsMono-Regular', fontSize: 10.5, color: colors.muted, marginTop: 2 },
+  title: { fontFamily: 'Poppins-SemiBold', fontSize: 21, color: colors.ink },
+  content: { flex: 1, paddingHorizontal: 18 },
+  sectionLabel: { fontFamily: 'OpenSans-SemiBold', fontSize: 11.5, color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 18, marginBottom: 10 },
+  nameRow: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 10, marginBottom: 8 },
+  nameInput: { fontFamily: 'OpenSans-SemiBold', fontSize: 14, color: colors.ink, padding: 13 },
+  row: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 13, marginBottom: 8 },
+  rowTitle: { fontFamily: 'OpenSans-SemiBold', fontSize: 14, color: colors.ink },
+  rowValue: { fontFamily: 'OpenSans-Regular', fontSize: 12, color: colors.muted, marginTop: 2 },
+  rowValueMono: { fontFamily: 'JetBrainsMono-Regular', fontSize: 11, color: colors.muted, marginTop: 2 },
 });

@@ -3,6 +3,8 @@ import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { useSelector } from 'react-redux';
 import { colors } from '../theme/colors';
 import type { RootState } from '../app/store';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { BottomTabs } from '../components/BottomTabs';
 
 const iconStyle = {
   sent: { bg: colors.signalDim, fg: colors.signal, glyph: '\u2191' },
@@ -14,11 +16,12 @@ export function HistoryScreen() {
   const history = useSelector((s: RootState) => s.transfer.history);
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
       <View style={styles.topbar}>
         <Text style={styles.title}>History</Text>
       </View>
       <FlatList
+        style={styles.list}
         contentContainerStyle={styles.content}
         data={history}
         keyExtractor={item => item.id}
@@ -45,12 +48,14 @@ export function HistoryScreen() {
           );
         }}
       />
-    </View>
+      <BottomTabs />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.paper },
+  list: { flex: 1 },
   topbar: { paddingHorizontal: 18, paddingTop: 12, paddingBottom: 14 },
   title: { fontFamily: 'Poppins-SemiBold', fontSize: 19, color: colors.ink },
   content: { paddingHorizontal: 18, paddingBottom: 24 },
