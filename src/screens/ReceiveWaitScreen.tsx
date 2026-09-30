@@ -17,6 +17,41 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Stage = 'waiting' | 'incoming' | 'receiving' | 'done';
 
+const MIME_TYPES: Record<string, string> = {
+  aac: 'audio/aac',
+  avi: 'video/x-msvideo',
+  csv: 'text/csv',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  gif: 'image/gif',
+  heic: 'image/heic',
+  jpeg: 'image/jpeg',
+  jpg: 'image/jpeg',
+  json: 'application/json',
+  m4a: 'audio/mp4',
+  mov: 'video/quicktime',
+  mp3: 'audio/mpeg',
+  mp4: 'video/mp4',
+  pdf: 'application/pdf',
+  png: 'image/png',
+  ppt: 'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  rtf: 'application/rtf',
+  svg: 'image/svg+xml',
+  txt: 'text/plain',
+  wav: 'audio/wav',
+  webp: 'image/webp',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  xml: 'application/xml',
+  zip: 'application/zip',
+};
+
+function mimeTypeForFile(fileName: string): string {
+  const extension = fileName.split('.').pop()?.toLowerCase() ?? '';
+  return MIME_TYPES[extension] ?? 'application/octet-stream';
+}
+
 export function ReceiveWaitScreen() {
   const navigation = useNavigation<any>();
   const dispatch = useDispatch();
@@ -113,6 +148,7 @@ export function ReceiveWaitScreen() {
       const result = await saveDocuments({
         sourceUris: [`file://${encodeURI(savedPath)}`],
         fileName: fileInfo.name,
+        mimeType: mimeTypeForFile(fileInfo.name),
         copy: true,
       });
 
